@@ -4,6 +4,7 @@ using PromoCodeFactory.Core.Domain.Administration;
 using PromoCodeFactory.WebHost.Models;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -81,7 +82,7 @@ namespace PromoCodeFactory.WebHost.Controllers
         [HttpPost]
         public async Task<ActionResult<RoleItemResponse>> UpdateRoleAsync(Role role)
         {
-            var roleUpdated = await _rolesRepository.UpdateAsync(role);
+            var roleUpdated = (await _rolesRepository.UpdateAsync(role));
 
             if (roleUpdated == null)
                 return NotFound("Не найдена роль с Id = " + role.Id.ToString());
@@ -99,8 +100,8 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Удалить роль
         /// </summary>
-        /// <returns></returns>
-        [HttpPost("{id:guid}")]
+        /// <returns>Возвращает удалённый объект</returns>
+        [HttpDelete("{id:guid}")]
         public async Task<ActionResult<RoleItemResponse>> DeleteRoleAsync(Guid id)
         {
             var foundEmployerList = await GetEmployeeListByRoleIdAsync(id);
@@ -110,13 +111,17 @@ namespace PromoCodeFactory.WebHost.Controllers
                 var deletedRole = await _rolesRepository.DeleteAsync(id);
 
                 if (deletedRole == null)
-                    return NotFound();  // Не нашли роль с таким Id
+                    return NotFound("Не найдена роль с Id = " + id.ToString());  // Не нашли роль с таким Id
                 else
                     return Ok("Удалили роль с Id " + id.ToString());  // удалили
             }
             else
             {
-                return Conflict("Удаляемая роль найдена у следующих сотрудников " + foundEmployerList.ToString());
+                ErrorResponse errorResponse = new ErrorResponse();
+                errorResponse.ErrorMessage = "Удаляемая роль найдена у одного или нескольких сотрудников";
+                errorResponse.Employees = foundEmployerList;
+
+                return Conflict(errorResponse);
             }
         }
 
@@ -125,8 +130,9 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// Получить список сотрудников с ролью по Id роли
         /// </summary>
         /// <returns>Возвращает список сотрудников с указанной ролью или пустой список, если не найдены такие</returns>
-        [HttpPost("{id:guid}")]
-        public async Task<ActionResult<IEnumerable<EmployeeShortResponse>>> GetEmployeeListByRoleIdAsync(Guid id)
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpGet("{id:guid}")]
+        public async Task<IEnumerable<EmployeeShortResponse>> GetEmployeeListByRoleIdAsync(Guid id)
         {
 
             var allEmployeeList = await _employeeRepository.GetAllAsync();

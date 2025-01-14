@@ -23,7 +23,11 @@ namespace PromoCodeFactory.DataAccess.Repositories
 
         public Task<T> GetByIdAsync(Guid id)
         {
-            return Task.FromResult(Data.FirstOrDefault(x => x.Id == id));
+            var objAlreadyExist = Data.FirstOrDefault(x => x.Id == id);
+            if (objAlreadyExist != null)
+                return Task.FromResult(objAlreadyExist);
+            else
+                return Task.FromResult<T>(null);
         }
 
         public Task<T> CreateAsync([NotNull] T obj)
@@ -31,7 +35,7 @@ namespace PromoCodeFactory.DataAccess.Repositories
             var objAlreadyExist = Data.FirstOrDefault(x => x.Id == obj.Id);
             if (objAlreadyExist != null)
             {
-                return null;
+                return Task.FromResult<T>(null);
             }
             Data = Data.Append(obj);
             return Task.FromResult(Data.FirstOrDefault(x => x.Id == obj.Id));
@@ -42,7 +46,8 @@ namespace PromoCodeFactory.DataAccess.Repositories
             var objAlreadyExist = Data.FirstOrDefault(x => x.Id == obj.Id);
             if (objAlreadyExist == null)
             {
-                return null;
+                return Task.FromResult<T>(null);
+
             }
             var propertiesList = objAlreadyExist.GetType().GetProperties();
             foreach (var property in propertiesList)
@@ -57,12 +62,12 @@ namespace PromoCodeFactory.DataAccess.Repositories
             var objAlreadyExist = Data.FirstOrDefault(x => x.Id == id);
             if (objAlreadyExist == null)
             {
-                return null;
+                return Task.FromResult<T>(null);
             }
             Data = Data.Where(x => x.Id != id);
             if (objAlreadyExist == null)
             {
-                return null;
+                return Task.FromResult<T>(null);
             }
             return Task.FromResult(objAlreadyExist);
         }

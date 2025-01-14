@@ -95,7 +95,7 @@ namespace PromoCodeFactory.WebHost.Controllers
 
             foreach (var role in newEmployeeVar.Roles)
             {
-                var foundRole = _rolesRepository.GetByIdAsync(role.Id);
+                var foundRole = await _rolesRepository.GetByIdAsync(role.Id);
                 if (foundRole == null)
                 {
                     return NotFound("Роль нового сотрудника с Id " + role.Id.ToString() + " не найдена в справочнике ролей");
@@ -113,6 +113,7 @@ namespace PromoCodeFactory.WebHost.Controllers
                 Email = employeeNew.Email,
                 Roles = employeeNew.Roles.Select(x => new RoleItemResponse()
                 {
+                    Id = x.Id,
                     Name = x.Name,
                     Description = x.Description
                 }).ToList(),
@@ -132,7 +133,7 @@ namespace PromoCodeFactory.WebHost.Controllers
 
             foreach (var role in employee.Roles)
             {
-                var foundRole = _rolesRepository.GetByIdAsync(role.Id);
+                var foundRole = await _rolesRepository.GetByIdAsync(role.Id);
                 if (foundRole == null)
                 {
                     return NotFound("Роль обновляемого сотрудника с Id " + role.Id.ToString() + " не найдена в справочнике ролей");
@@ -162,7 +163,7 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// Удалить сотрудника
         /// </summary>
         /// <returns></returns>
-        [HttpPost("{id:guid}")]
+        [HttpDelete("{id:guid}")]
         public async Task<ActionResult<EmployeeResponse>> DeleteEmployeeAsync(Guid id)
         {
             var deletedEmployee = await _employeeRepository.DeleteAsync(id);
@@ -170,7 +171,7 @@ namespace PromoCodeFactory.WebHost.Controllers
             if (deletedEmployee == null)
                 return NotFound("Не найден сотрудник с Id " + id.ToString());
             else
-                return Ok("Удалили сотрудника с Id " + id.ToString());
+                return Ok("Удалён сотрудник с Id " + id.ToString());
         }
     }
 }
