@@ -52,7 +52,8 @@ namespace PromoCodeFactory.DataAccess.Repositories
             var propertiesList = objAlreadyExist.GetType().GetProperties();
             foreach (var property in propertiesList)
             {
-                property.SetValue(objAlreadyExist, property.GetValue(obj));
+                if (property.CanWrite)
+                    property.SetValue(objAlreadyExist, property.GetValue(obj));
             }
             return Task.FromResult(Data.FirstOrDefault(x => x.Id == obj.Id));
         }

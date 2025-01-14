@@ -90,7 +90,7 @@ namespace PromoCodeFactory.WebHost.Controllers
                 FirstName = employee.FirstName,
                 LastName = employee.LastName,
                 AppliedPromocodesCount = employee.AppliedPromocodesCount,
-                Roles = employee.Roles.Select(x => new Role() { Id = x.Id, Name = x.Name, Description = x.Description }).ToList()
+                Roles = employee.Roles.Select(x => new Role() { Id = x, Name = "", Description = "" }).ToList()
             };
 
             foreach (var role in newEmployeeVar.Roles)
@@ -100,6 +100,12 @@ namespace PromoCodeFactory.WebHost.Controllers
                 {
                     return NotFound("Роль нового сотрудника с Id " + role.Id.ToString() + " не найдена в справочнике ролей");
                 }
+                else
+                {
+                    role.Name = foundRole.Name;
+                    role.Description = foundRole.Description;
+                }
+
             }
 
             var employeeNew = await _employeeRepository.CreateAsync(newEmployeeVar);
@@ -128,18 +134,34 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// </summary>
         /// <returns>Возвращает объект обновлённого сотрудника</returns>
         [HttpPost]
-        public async Task<ActionResult<EmployeeResponse>> UpdateEmployeeAsync(Employee employee)
+        public async Task<ActionResult<EmployeeResponse>> UpdateEmployeeAsync(EmployeeUpdateRequest employee)
         {
 
-            foreach (var role in employee.Roles)
+            List<Role> roleItems = new List<Role>();
+            foreach (var roleId in employee.Roles)
             {
-                var foundRole = await _rolesRepository.GetByIdAsync(role.Id);
+                var foundRole = await _rolesRepository.GetByIdAsync(roleId);
                 if (foundRole == null)
                 {
-                    return NotFound("Роль обновляемого сотрудника с Id " + role.Id.ToString() + " не найдена в справочнике ролей");
+                    return NotFound("Роль обновляемого сотрудника с Id " + roleId.ToString() + " не найдена в справочнике ролей");
+                }
+                else
+                {
+                    roleItems.Add(new Role { Id = foundRole.Id, Name = foundRole.Name, Description = foundRole.Name });
                 }
             }
-            var employeeUpdated = await _employeeRepository.UpdateAsync(employee);
+
+            Employee newEmployee = new Employee
+            {
+                Id = employee.Id,
+                FirstName = employee.FirstName,
+                LastName = employee.LastName,
+                Email = employee.Email,
+                Roles = roleItems,
+                AppliedPromocodesCount = employee.AppliedPromocodesCount
+            };
+
+            var employeeUpdated = await _employeeRepository.UpdateAsync(newEmployee);
 
             if (employeeUpdated == null)
                 return NotFound("Сотрудник с Id " + employee.Id.ToString() + "не найден");  // Не нашли сотрудника с таким Id
@@ -150,6 +172,7 @@ namespace PromoCodeFactory.WebHost.Controllers
                 Email = employeeUpdated.Email,
                 Roles = employeeUpdated.Roles.Select(x => new RoleItemResponse()
                 {
+                    Id = x.Id,
                     Name = x.Name,
                     Description = x.Description
                 }).ToList(),
