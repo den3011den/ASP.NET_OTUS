@@ -1,7 +1,7 @@
-﻿using System;
+﻿using PromoCodeFactory.Core.Domain.Administration;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using PromoCodeFactory.Core.Domain.Administration;
 
 namespace PromoCodeFactory.DataAccess.Data
 {
@@ -17,7 +17,7 @@ namespace PromoCodeFactory.DataAccess.Data
                 LastName = "Сергеев",
                 Roles = new List<Role>()
                 {
-                    Roles.FirstOrDefault(x => x.Name == "Admin")  
+                    Roles.FirstOrDefault(x => x.Name == "Admin")
                 },
                 AppliedPromocodesCount = 5
             },
@@ -29,11 +29,12 @@ namespace PromoCodeFactory.DataAccess.Data
                 LastName = "Андреев",
                 Roles = new List<Role>()
                 {
-                    Roles.FirstOrDefault(x => x.Name == "PartnerManager")  
+                    Roles.FirstOrDefault(x => x.Name == "PartnerManager")
                 },
                 AppliedPromocodesCount = 10
             },
         };
+
 
         public static IList<Role> Roles => new List<Role>()
         {
