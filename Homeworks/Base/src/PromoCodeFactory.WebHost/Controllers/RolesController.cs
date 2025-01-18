@@ -6,12 +6,13 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace PromoCodeFactory.WebHost.Controllers
 {
     /// <summary>
-    /// Роли сотрудников
+    /// Роли
     /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
@@ -27,10 +28,12 @@ namespace PromoCodeFactory.WebHost.Controllers
         }
 
         /// <summary>
-        /// Получить все доступные роли сотрудников
+        /// Получить все доступные роли
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Возвращает список всех ролей</returns>
+        /// <response code="200">Успешное выполнение</response>
         [HttpGet]
+        [ProducesResponseType(typeof(List<RoleItemResponse>), (int)HttpStatusCode.OK)]
         public async Task<List<RoleItemResponse>> GetRolesAsync()
         {
             var roles = await _rolesRepository.GetAllAsync();
@@ -46,11 +49,45 @@ namespace PromoCodeFactory.WebHost.Controllers
             return rolesModelList;
         }
 
+
         /// <summary>
-        /// Добавить роль
+        /// Получить роль по её id
         /// </summary>
-        /// <returns>Возвращает объект созданной роли</returns>        
-        [HttpPut]
+        /// <param name="id"></param>
+        /// <returns>Вернёт найденую роль - объект EmployeeResponse</returns>
+        /// <response code="200">Успешное выполнение</response>
+        /// <response code="404">Роль с заданным id не найдена</response>
+        [HttpGet("{id:guid}")]
+        [ProducesResponseType(typeof(RoleItemResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
+        public async Task<ActionResult<RoleItemResponse>> GetRoleByIdAsync(Guid id)
+        {
+            var role = await _rolesRepository.GetByIdAsync(id);
+
+            if (role == null)
+                return NotFound("Не найдена роль с Id " + id.ToString());
+
+            var roleModel = new RoleItemResponse()
+            {
+                Id = role.Id,
+                Name = role.Name,
+                Description = role.Description
+            };
+
+            return roleModel;
+        }
+
+
+        /// <summary>
+        /// Добавить новую роль
+        /// </summary>
+        /// <param name="id">GUID роли</param>
+        /// <returns>Вернёт созданую роль - объект RoleItemResponse</returns>
+        /// <response code="200">Успешное выполнение. Роль создана</response>
+        /// <response code="400">Роль со сгенерированным БД id уже существует</response>
+        [HttpPost]
+        [ProducesResponseType(typeof(RoleItemResponse), (int)HttpStatusCode.Created)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.BadRequest)]
         public async Task<ActionResult<RoleItemResponse>> CreateRoleAsync(RoleItemRequest roleVar)
         {
             Guid newGiud = Guid.NewGuid();
@@ -64,7 +101,7 @@ namespace PromoCodeFactory.WebHost.Controllers
             var roleNew = await _rolesRepository.CreateAsync(newRole);
 
             if (roleNew == null)
-                return Conflict("Уже есть роль с Id " + newGiud.ToString());
+                return BadRequest("Уже есть роль с Id " + newGiud.ToString());
 
             var roleModel = new RoleItemResponse()
             {
@@ -72,14 +109,24 @@ namespace PromoCodeFactory.WebHost.Controllers
                 Name = roleNew.Name,
                 Description = roleNew.Description
             };
-            return roleModel;
+            //return roleModel;
+
+            var routVar = new UriBuilder(Request.Scheme, Request.Host.Host, (int)Request.Host.Port, Request.Path.Value).ToString() + "/" + roleModel.Id.ToString();
+            return Created(routVar, roleModel);
         }
 
         /// <summary>
-        /// Обновить роль
+        /// Обновить данные роли
         /// </summary>
-        /// <returns>Возвращает обновлённый объект</returns>
-        [HttpPost]
+        /// <param name="role">Данные роли - объект Role</param>
+        /// <returns>Возвращает данные обновлённой роли - объект RoleItemResponse</returns>
+        /// <response code="200">Успешное выполнение. Данные роли обновлены</response>        
+        /// <response code="404">Не найдена роль с указаным id</response>
+        /// 
+        [HttpPut]
+        [ProducesResponseType(typeof(EmployeeResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
+
         public async Task<ActionResult<RoleItemResponse>> UpdateRoleAsync(Role role)
         {
             var roleUpdated = (await _rolesRepository.UpdateAsync(role));
@@ -100,8 +147,16 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Удалить роль
         /// </summary>
-        /// <returns>Возвращает удалённый объект</returns>
+        /// <param name="id">id удаляемой роли</param>
+        /// <returns>Данные далённой роли - объект RoleItemResponse</returns>
+        /// <response code="200">Успешное выполнение. Роль удалёна</response>
+        /// <response code="400">Роль присутствует в списке ролей одного из сотрудников (см. ответ для деталей)</response>
+        /// <response code="404">Не найдена роль с указанным id</response>
+        /// 
         [HttpDelete("{id:guid}")]
+        [ProducesResponseType(typeof(EmployeeResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
         public async Task<ActionResult<RoleItemResponse>> DeleteRoleAsync(Guid id)
         {
             var foundEmployerList = await GetEmployeeListByRoleIdAsync(id);
@@ -111,9 +166,9 @@ namespace PromoCodeFactory.WebHost.Controllers
                 var deletedRole = await _rolesRepository.DeleteAsync(id);
 
                 if (deletedRole == null)
-                    return NotFound("Не найдена роль с Id = " + id.ToString());  // Не нашли роль с таким Id
+                    return NotFound("Не найдена роль с Id = " + id.ToString());
                 else
-                    return Ok("Удалили роль с Id " + id.ToString());  // удалили
+                    return Ok("Удалили роль с Id " + id.ToString());
             }
             else
             {
@@ -121,7 +176,7 @@ namespace PromoCodeFactory.WebHost.Controllers
                 errorResponse.ErrorMessage = "Удаляемая роль найдена у одного или нескольких сотрудников";
                 errorResponse.Employees = foundEmployerList;
 
-                return Conflict(errorResponse);
+                return BadRequest(errorResponse);
             }
         }
 
@@ -129,9 +184,9 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Получить список сотрудников с ролью по Id роли
         /// </summary>
-        /// <returns>Возвращает список сотрудников с указанной ролью или пустой список, если не найдены такие</returns>
+        /// <returns>Возвращает список сотрудников с указанной ролью или пустой список, если не найдены</returns>
         [ApiExplorerSettings(IgnoreApi = true)]
-        [HttpGet("{id:guid}")]
+        [HttpGet("employees/{id:guid}")]
         public async Task<IEnumerable<EmployeeShortResponse>> GetEmployeeListByRoleIdAsync(Guid id)
         {
 
@@ -163,6 +218,5 @@ namespace PromoCodeFactory.WebHost.Controllers
                 return null;
             }
         }
-
     }
 }

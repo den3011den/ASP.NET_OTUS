@@ -5,6 +5,7 @@ using PromoCodeFactory.WebHost.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace PromoCodeFactory.WebHost.Controllers
@@ -26,31 +27,37 @@ namespace PromoCodeFactory.WebHost.Controllers
         }
 
         /// <summary>
-        /// Получить данные всех сотрудников
+        /// Получение списка всех сотрудников
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Возвращает список всех сотрудников</returns>
+        /// <response code="200">Успешное выполнение</response>
         [HttpGet]
+        [ProducesResponseType(typeof(List<EmployeeShortResponse>), (int)HttpStatusCode.OK)]
         public async Task<List<EmployeeShortResponse>> GetEmployeesAsync()
         {
             var employees = await _employeeRepository.GetAllAsync();
 
-            var employeesModelList = employees.Select(x =>
+            List<EmployeeShortResponse> employeesModelList = employees.Select(x =>
                 new EmployeeShortResponse()
                 {
                     Id = x.Id,
                     Email = x.Email,
                     FullName = x.FullName,
                 }).ToList();
-
             return employeesModelList;
         }
 
 
         /// <summary>
-        /// Получить данные сотрудника по Id
+        /// Получить сотрудника по его id
         /// </summary>
-        /// <returns></returns>
+        /// <param name="id"></param>
+        /// <returns>Вернёт найденого сотрудника - объект EmployeeResponse</returns>
+        /// <response code="200">Успешное выполнение</response>
+        /// <response code="404">Сотрудник с заданным id не найден</response>
         [HttpGet("{id:guid}")]
+        [ProducesResponseType(typeof(EmployeeResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
         public async Task<ActionResult<EmployeeResponse>> GetEmployeeByIdAsync(Guid id)
         {
             var employee = await _employeeRepository.GetByIdAsync(id);
@@ -78,8 +85,15 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Добавить нового сотрудника
         /// </summary>
-        /// <returns>Возвращает объект созданного сотрудника</returns>
-        [HttpPut]
+        /// <param name="id">GUID сотрудника</param>
+        /// <returns>Вернёт созданого сотрудника - объект EmployeeResponse</returns>
+        /// <response code="200">Успешное выполнение. Сотрудник создан</response>
+        /// <response code="400">Сотрудник со сгенерированным БД id уже существует</response>
+        /// <response code="404">Роль сотрудника с указанным id не найдена в справочнике ролей</response>
+        [HttpPost]
+        [ProducesResponseType(typeof(EmployeeResponse), (int)HttpStatusCode.Created)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
         public async Task<ActionResult<EmployeeResponse>> CreateEmployeeAsync(EmployeeRequest employee)
         {
             Guid newId = Guid.NewGuid();
@@ -98,7 +112,7 @@ namespace PromoCodeFactory.WebHost.Controllers
                 var foundRole = await _rolesRepository.GetByIdAsync(role.Id);
                 if (foundRole == null)
                 {
-                    return NotFound("Роль нового сотрудника с Id " + role.Id.ToString() + " не найдена в справочнике ролей");
+                    return NotFound("Роль нового сотрудника с Id " + role.Id.ToString() + " не найдена в справочнике ролей.");
                 }
                 else
                 {
@@ -111,7 +125,7 @@ namespace PromoCodeFactory.WebHost.Controllers
             var employeeNew = await _employeeRepository.CreateAsync(newEmployeeVar);
 
             if (employee == null)
-                return Conflict("Уже есть сотрудник с Id " + newEmployeeVar.Id.ToString());
+                return BadRequest("Уже есть сотрудник с Id " + newEmployeeVar.Id.ToString());
 
             var employeeModel = new EmployeeResponse()
             {
@@ -126,14 +140,26 @@ namespace PromoCodeFactory.WebHost.Controllers
                 FullName = employeeNew.FullName,
                 AppliedPromocodesCount = employeeNew.AppliedPromocodesCount
             };
-            return employeeModel;
+            //return employeeModel;
+
+            var routVar = new UriBuilder(Request.Scheme, Request.Host.Host, (int)Request.Host.Port, Request.Path.Value).ToString() + "/" + employeeModel.Id.ToString();
+            return Created(routVar, employeeModel);
+
         }
 
         /// <summary>
         /// Обновить данные сотрудника
         /// </summary>
-        /// <returns>Возвращает объект обновлённого сотрудника</returns>
-        [HttpPost]
+        /// <param name="employee">Данные сотрудника - объект EmployeeUpdateRequest</param>
+        /// <returns>Возвращает данные обновлённого сотрудника - объект EmployeeResponse</returns>
+        /// <response code="200">Успешное выполнение. Данные сотрудника обновлены</response>
+        /// <response code="400">Одна из ролей сотрудника не найдена в справочнике ролей</response>
+        /// <response code="404">Не найден сотрудник с указанным id</response>
+        /// 
+        [HttpPut]
+        [ProducesResponseType(typeof(EmployeeResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
         public async Task<ActionResult<EmployeeResponse>> UpdateEmployeeAsync(EmployeeUpdateRequest employee)
         {
 
@@ -143,7 +169,7 @@ namespace PromoCodeFactory.WebHost.Controllers
                 var foundRole = await _rolesRepository.GetByIdAsync(roleId);
                 if (foundRole == null)
                 {
-                    return NotFound("Роль обновляемого сотрудника с Id " + roleId.ToString() + " не найдена в справочнике ролей");
+                    return BadRequest("Роль обновляемого сотрудника с Id " + roleId.ToString() + " не найдена в справочнике ролей");
                 }
                 else
                 {
@@ -164,7 +190,7 @@ namespace PromoCodeFactory.WebHost.Controllers
             var employeeUpdated = await _employeeRepository.UpdateAsync(newEmployee);
 
             if (employeeUpdated == null)
-                return NotFound("Сотрудник с Id " + employee.Id.ToString() + "не найден");  // Не нашли сотрудника с таким Id
+                return NotFound("Сотрудник с Id " + employee.Id.ToString() + "не найден");
 
             var employeeModel = new EmployeeResponse()
             {
@@ -185,8 +211,14 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Удалить сотрудника
         /// </summary>
-        /// <returns></returns>
+        /// <param name="id">id удаляемого сотрудника</param>
+        /// <returns>Данные далённого сотрудника - объект EmployeeResponse</returns>        
+        /// <response code="200">Успешное выполнение. Сотрудник удалён</response>        
+        /// <response code="404">Не найден сотрудник с указанным id</response>
+        /// 
         [HttpDelete("{id:guid}")]
+        [ProducesResponseType(typeof(EmployeeResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
         public async Task<ActionResult<EmployeeResponse>> DeleteEmployeeAsync(Guid id)
         {
             var deletedEmployee = await _employeeRepository.DeleteAsync(id);
